@@ -4,13 +4,12 @@ from telebot import types
 TOKEN = "8384688345:AAFGh1SVjZZi2qab7mdm6FgblA2Dq6kcu2Y"
 ADMIN_ID = 1682893410
 CHANNEL_USERNAME = "@posingxd"
+PRICE_LINK = "https://t.me/posingxd/7"
 
 bot = telebot.TeleBot(TOKEN)
 
 user_states = {}
 orders = {}
-active_chats = {}
-messages_waiting = {}
 
 # ---------------- ПРОВЕРКА ПОДПИСКИ ----------------
 
@@ -21,14 +20,30 @@ def check_subscription(user_id):
     except:
         return False
 
-# ---------------- ГЛАВНОЕ МЕНЮ ----------------
+# ---------------- ГЛАВНОЕ МЕНЮ КЛИЕНТА ----------------
 
 def main_menu(chat_id):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("❣️ Заказать позинг")
     markup.add("✉️ Связаться")
     markup.add("💰 Прайс")
+
+    if chat_id == ADMIN_ID:
+        markup.add("👩‍💻 В админ панель")
+
     bot.send_message(chat_id, "Главное меню", reply_markup=markup)
+
+# ---------------- АДМИН МЕНЮ ----------------
+
+def admin_menu(chat_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("🤲 Заказы")
+    markup.add("✉️ Сообщения")
+    markup.add("👤 В меню клиента")
+
+    bot.send_message(chat_id, "Админ панель", reply_markup=markup)
+
+# ---------------- START ----------------
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -37,13 +52,24 @@ def start(message):
     else:
         main_menu(message.chat.id)
 
-# ---------------- АДМИН МЕНЮ ----------------
+# ---------------- ПЕРЕКЛЮЧЕНИЕ МЕНЮ ----------------
 
-def admin_menu(chat_id):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("🤲 Заказы")
-    markup.add("✉️ Сообщения")
-    bot.send_message(chat_id, "Админ панель", reply_markup=markup)
+@bot.message_handler(func=lambda m: m.text == "👤 В меню клиента")
+def go_client_menu(message):
+    main_menu(message.chat.id)
+
+@bot.message_handler(func=lambda m: m.text == "👩‍💻 В админ панель")
+def go_admin_menu(message):
+    if message.chat.id == ADMIN_ID:
+        admin_menu(message.chat.id)
+
+# ---------------- ПРАЙС ----------------
+
+@bot.message_handler(func=lambda m: m.text == "💰 Прайс")
+def price(message):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("Открыть прайс 💋", url=PRICE_LINK))
+    bot.send_message(message.chat.id, "Нажмите кнопку ниже:", reply_markup=markup)
 
 # ---------------- ЗАКАЗ ----------------
 
@@ -52,9 +78,11 @@ def make_order(message):
     if not check_subscription(message.chat.id):
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Проверить снова", callback_data="check_sub"))
-        bot.send_message(message.chat.id,
-                         "Для оформления заказа подпишитесь на канал @posingxd 💋",
-                         reply_markup=markup)
+        bot.send_message(
+            message.chat.id,
+            "Для оформления заказа подпишитесь на канал @posingxd 💋",
+            reply_markup=markup
+        )
         return
 
     user_states[message.chat.id] = "nickname"
@@ -68,9 +96,9 @@ def check_sub(call):
         orders[call.message.chat.id] = {}
         bot.send_message(call.message.chat.id, "Подписка подтверждена!\n\n1️⃣ Ваш ник в Roblox?")
     else:
-        bot.answer_callback_query(call.id, "Вы не подписаны!🙁")
+        bot.answer_callback_query(call.id, "Вы не подписаны 🙁")
 
-# ---------------- ОБРАБОТКА АНКЕТЫ ----------------
+# ---------------- АНКЕТА ----------------
 
 @bot.message_handler(func=lambda m: m.chat.id in user_states)
 def handle_form(message):
@@ -92,14 +120,14 @@ def handle_form(message):
     elif state == "payment":
         orders[message.chat.id]["payment"] = message.text
         user_states[message.chat.id] = "wishes"
-        bot.send_message(message.chat.id, "4️⃣ Пожелания? (лицо, корблокс, аксессуары, освещение и т.д.)")
+        bot.send_message(message.chat.id, "4️⃣ Пожелания?")
 
     elif state == "wishes":
         orders[message.chat.id]["wishes"] = message.text
         user_states[message.chat.id] = "photo1"
         bot.send_message(message.chat.id, "5️⃣ Пришлите фото-пример")
 
-# ---------------- ПРОВЕРКА ФОТО ----------------
+# ---------------- ФОТО ----------------
 
 @bot.message_handler(content_types=['photo'])
 def handle_photos(message):
@@ -117,12 +145,15 @@ def handle_photos(message):
         orders[message.chat.id]["photo2"] = message.photo[-1].file_id
         user_states.pop(message.chat.id)
 
-        bot.send_message(message.chat.id, "Спасибо за заказ! Я скоро свяжусь с вами💋")
+        bot.send_message(message.chat.id, "Спасибо за заказ! Я скоро свяжусь с вами 💋")
         send_order_to_admin(message.chat.id)
+
+# ---------------- ОТПРАВКА АДМИНУ ----------------
 
 def send_order_to_admin(user_id):
     data = orders[user_id]
-    text = f"""📌 Новый заказ!
+
+    text = f"""📌 Новый заказ
 
 ID: {user_id}
 Ник: {data['nickname']}
@@ -142,4 +173,4 @@ ID: {user_id}
 
 # ---------------- ЗАПУСК ----------------
 
-bot.polling(none_stop=True)
+bot.infinity_polling()
